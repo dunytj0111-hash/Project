@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Vocab Duel – Burst Battle (Animated)</title>
+  <style>
+    body { background:#111; color:#fff; font-family:sans-serif; text-align:center; }
+    #game { border:2px solid #fff; margin:20px auto; width:600px; height:400px; position:relative; background:#000; overflow:hidden; }
+    .player { width:20px; height:40px; position:absolute; top:180px; }
+    #p1 { left:10px; background:blue; }
+    #p2 { right:10px; background:red; }
+    .bullet { width:20px; height:8px; position:absolute; border-radius:4px; }
+    .p1Bullet { background:blue; box-shadow:0 0 8px cyan; }
+    .p2Bullet { background:red; box-shadow:0 0 8px magenta; }
+
+    /* Explosion animation */
+    .explosion {
+      position:absolute;
+      width:30px;
+      height:30px;
+      border-radius:50%;
+      background:orange;
+      box-shadow:0 0 20px yellow;
+      animation: explode 0.5s ease-out forwards;
+      pointer-events:none;
+    }
+    @keyframes explode {
+      0% { transform:scale(0.5); opacity:1; }
+      50% { transform:scale(1.5); opacity:0.8; background:yellow; }
+      100% { transform:scale(2); opacity:0; }
+    }
+
+    /* Improved hit flash */
+    .hitFlash { animation: flash 0.4s; }
+    @keyframes flash {
+      0% { filter:brightness(3); }
+      100% { filter:brightness(1); }
+    }
+
+    /* Health bars */
+    .healthBar {
+      position:absolute;
+      width:60px;
+      height:8px;
+      background:#333;
+      border:1px solid #000;
+      border-radius:4px;
+      overflow:hidden;
+    }
+    .healthFill {
+      height:100%;
+      width:100%;
+      background:lime;
+      transition:width 0.3s;
+    }
+
+    /* Quiz Box */
+    #quizBox {
+      background:#1a1a1a;
+      border:2px solid #444;
+      border-radius:16px;
+      padding:20px;
+      max-width:500px;
+      margin:20px auto;
+      box-shadow:0 0 15px rgba(0,0,0,0.6);
+    }
+    #quizBox p { font-size:20px; margin-bottom:16px; }
+
+    /* Progress bar for quiz */
+    .progressWrap {
+      background:#333;
+      border-radius:8px;
+      overflow:hidden;
+      height:16px;
+      margin-bottom:16px;
+      border:1px solid #555;
+    }
+    .progressFill {
+      height:100%;
+      width:0%;
+      background:linear-gradient(90deg, #0ff, #08f);
+      transition:width 0.4s ease;
+    }
+    .p2bar .progressFill {
+      background:linear-gradient(90deg, #f0f, #a0f);
+    }
+
+    /* Answer buttons */
+    .answerBtn {
+      display:block;
+      width:100%;
+      margin:8px 0;
+      padding:12px 16px;
+      font-size:18px;
+      border-radius:12px;
+      border:2px solid #555;
+      background:#222;
+      color:#fff;
+      cursor:pointer;
+      transition: all 0.2s;
+    }
+    .answerBtn:hover {
+      background:#333;
+      border-color:#888;
+      transform:scale(1.02);
+    }
+
+    /* Correct animation */
+    @keyframes correctAnim {
+      0%   { transform: scale(1);   box-shadow: 0 0 0px #0f0; }
+      50%  { transform: scale(1.1); box-shadow: 0 0 20px #0f0; }
+      100% { transform: scale(1);   box-shadow: 0 0 0px #0f0; }
+    }
+    .answerBtn.correct {
+      background:#0c3;
+      border-color:#0f5;
+      color:#000;
+      animation: correctAnim 0.6s ease;
+    }
+
+    /* Wrong animation */
+    @keyframes wrongAnim {
+      0%,100% { transform: translateX(0); }
+      20%,60% { transform: translateX(-8px); }
+      40%,80% { transform: translateX(8px); }
+    }
+    .answerBtn.wrong {
+      background:#c00;
+      border-color:#f55;
+      color:#000;
+      animation: wrongAnim 0.4s ease;
+    }
+
+    #status { margin-top:10px; font-size:18px; }
+  </style>
+</head>
+<body>
+  <h1>⚔️ Vocab Duel – Burst Battle</h1>
+  <div id="quizBox"></div>
+  <div id="game">
+    <div id="p1" class="player"></div>
+    <div id="p2" class="player"></div>
+    <!-- Health bars -->
+    <div id="p1Health" class="healthBar" style="top:10px; left:20px;">
+      <div class="healthFill" id="p1HealthFill"></div>
+    </div>
+    <div id="p2Health" class="healthBar" style="top:10px; right:20px;">
+      <div class="healthFill" id="p2HealthFill"></div>
+    </div>
+  </div>
+  <div id="status"></div>
+
+<script>
+const QUESTIONS = [
+  {q:"Synonym of 'happy'?", options:["sad","joyful","angry"], a:1},
+  {q:"Opposite of 'cold'?", options:["hot","ice","freeze"], a:0},
+  {q:"Meaning of 'rapid'?", options:["slow","fast","tall"], a:1},
+  {q:"Synonym of 'tiny'?", options:["huge","small","long"], a:1},
+  {q:"Opposite of 'dark'?", options:["bright","black","shade"], a:0},
+  {q:"Meaning of 'ancient'?", options:["modern","old","future"], a:1},
+];
+
+let p1 = {el:document.getElementById("p1"), y:180, hearts:5, bullets:0, dir:1, speed:2};
+let p2 = {el:document.getElementById("p2"), y:180, hearts:5, bullets:0, dir:-1, speed:2};
+let game = document.getElementById("game");
+let quizBox = document.getElementById("quizBox");
+let statusBox = document.getElementById("status");
+
+let p1HealthFill=document.getElementById("p1HealthFill");
+let p2HealthFill=document.getElementById("p2HealthFill");
+
+let mode = null; // "multi" or "single"
+let turn = 1;
+let qCount = 0;
+let phase = "menu";
+let bullets = [];
+let item=null;
+
+function showMenu(){
+  quizBox.innerHTML = `
+    <h2>Select Mode</h2>
+    <button class="answerBtn" onclick="startMulti()">Multiplayer</button>
+    <button class="answerBtn" onclick="startSingle()">Single Player</button>
+  `;
+}
+
+function startMulti(){
+  mode="multi";
+  turn=1; qCount=0; phase="quiz";
+  p1.hearts=5; p2.hearts=5; p1.bullets=0; p2.bullets=0;
+  showQuestion();
+}
+
+function startSingle(){
+  mode="single";
+  turn=1; qCount=0; phase="quiz";
+  p1.hearts=5; p2.hearts=5; p1.bullets=0; p2.bullets=0;
+  p2.bullets=30; // bot starts with 30 bullets
+  showQuestion();
+}
+
+function showQuestion(){
+  if(mode==="multi"){
+    if(qCount>=5){
+      if(turn===1){ turn=2; qCount=0; showQuestion(); return; }
+      else if(turn===2){ 
+        quizBox.innerHTML="<b>Battle Phase! P1 shoots with E, P2 shoots with ←</b>";
+        phase="battle"; return;
+      }
+    }
+  } else if(mode==="single"){
+    if(qCount>=5){
+      quizBox.innerHTML="<b>Battle Phase! P1 shoots with E. Bot moves and shoots automatically.</b>";
+      phase="battle"; return;
+    }
+  }
+  let q = QUESTIONS[Math.floor(Math.random()*QUESTIONS.length)];
+  let progressHTML = `
+    <div class="progressWrap ${turn===1?"p1bar":"p2bar"}">
+      <div class="progressFill" style="width:${(qCount/5)*100}%"></div>
+    </div>
+  `;
+  quizBox.innerHTML = progressHTML + `<p><b>${mode==="single"?"Player":"Player "+turn}</b>: ${q.q}</p>`;
+  q.options.forEach((opt,i)=>{
+    let btn=document.createElement("button");
+    btn.innerText=opt;
+    btn.className="answerBtn";
+    btn.onclick=()=>{
+      if(i===q.a){
+        btn.classList.add("correct");
+        if(turn===1) p1.bullets+=5;
+        else p2.bullets+=5;
+      } else {
+        btn.classList.add("wrong");
+      }
+      document.querySelectorAll(".answerBtn").forEach(b=>b.disabled=true);
+      setTimeout(()=>{ qCount++; showQuestion(); },700);
+    };
+    quizBox.appendChild(btn);
+  });
+}
+
+function spawnItem(){
+  if(item) return;
+  let el=document.createElement("div");
+  el.style.position="absolute";
+  el.style.width="20px";
+  el.style.height="20px";
+  el.style.left="290px";
+  el.style.top=Math.floor(Math.random()*360)+"px";
+  el.style.fontSize="20px";
+  el.textContent="⭐";
+  game.appendChild(el);
+  item={x:290,y:parseInt(el.style.top),el:el};
+  setTimeout(()=>{ if(item){ item.el.remove(); item=null; } },8000);
+}
+
+function update(){
+  if(phase==="battle"){
+    [p1,p2].forEach(p=>{
+      p.y += p.dir * p.speed;
+      if(p.y<=0 || p.y>=360){
+        p.dir*=-1;
+        p.speed=1+Math.random()*3;
+      }
+    });
+
+    // bot fires automatically in single mode
+    if(mode==="single" && p2.bullets>=3 && Math.random()<0.03){
+      fire(2);
+    }
+
+    for(let i=bullets.length-1; i>=0; i--){
+      let b=bullets[i];
+      b.x += b.speed;
+      b.el.style.left = b.x+"px";
+      if(b.x<0 || b.x>600){
+        b.el.remove(); bullets.splice(i,1); continue;
+      }
+      if(item && Math.abs(b.x-item.x)<20 && Math.abs(b.y-item.y)<20){
+        let reward = Math.random()<0.5 ? "bullet" : "heart";
+        if(reward==="bullet"){ if(b.owner===1) p1.bullets++; else p2.bullets++; }
+        else { if(b.owner===1) p1.hearts++; else p2.hearts++; }
+        item.el.remove(); item=null; b.el.remove(); bullets.splice(i,1); continue;
+      }
+      if(b.owner===1 && Math.abs(b.x-580)<20 && Math.abs(b.y-p2.y)<40){
+        hitPlayer(p2,1,b,i);
+      }
+      if(b.owner===2 && Math.abs(b.x-20)<20 && Math.abs(b.y-p1.y)<40){
+        hitPlayer(p1,2,b,i);
+      }
+    }
+    renderPlayers();
+    if(Math.random()<0.002) spawnItem();
+  }
+  requestAnimationFrame(update);
+}
+
+function hitPlayer(player, attacker, bullet, index){
+  player.hearts--;
+  player.el.classList.add("hitFlash");
+  let exp=document.createElement("div");
+  exp.className="explosion";
+  exp.style.left=bullet.x+"px";
+  exp.style.top=bullet.y+"px";
+  game.appendChild(exp);
+  setTimeout(()=>exp.remove(),500);
+  setTimeout(()=>player.el.classList.remove("hitFlash"),300);
+  bullet.el.remove(); bullets.splice(index,1);
+  if(player.hearts<=0) endGame(attacker);
+}
+
+function renderPlayers(){
+  p1.el.style.top=p1.y+"px";
+  p2.el.style.top=p2.y+"px";
+  p1HealthFill.style.width=(p1.hearts/5*100)+"%";
+  p2HealthFill.style.width=(p2.hearts/5*100)+"%";
+  statusBox.innerHTML=`P1 Bullets:${p1.bullets} | P2 Bullets:${p2.bullets}`;
+}
+
+function fire(player){
+  let shooter=(player===1)?p1:p2;
+  if(shooter.bullets>=3){
+    for(let i=-1;i<=1;i++){ 
+      let b=document.createElement("div"); 
+      b.className="bullet "+(player===1?"p1Bullet":"p2Bullet");
+      let startX=(player===1)?30:560;
+      let startY=shooter.y+15+i*10;
+      b.style.left=startX+"px"; b.style.top=startY+"px";
+      game.appendChild(b);
+      bullets.push({el:b,x:startX,y:startY,speed:(player===1?6:-6),owner:player});
+    }
+    shooter.bullets-=3;
+  }
+}
+
+function endGame(winner){
+  phase="end";
+  quizBox.innerHTML=`<h2>${mode==="single" && winner===2?"Bot":"Player "+winner} Wins! 🎉</h2>
+  <button class="answerBtn" onclick="showMenu()">Play Again</button>`;
+}
+
+document.addEventListener("keydown",e=>{
+  if(phase!=="battle") return;
+  if(e.key==="e"||e.key==="E") fire(1);
+  if(mode==="multi" && e.key==="ArrowLeft") fire(2);
+});
+
+renderPlayers();
+showMenu();
+update();
+</script>
+</body>
+</html>
