@@ -152,12 +152,56 @@
 
 <script>
 const QUESTIONS = [
-  {q:"Synonym of 'happy'?", options:["sad","joyful","angry"], a:1},
-  {q:"Opposite of 'cold'?", options:["hot","ice","freeze"], a:0},
-  {q:"Meaning of 'rapid'?", options:["slow","fast","tall"], a:1},
-  {q:"Synonym of 'tiny'?", options:["huge","small","long"], a:1},
-  {q:"Opposite of 'dark'?", options:["bright","black","shade"], a:0},
-  {q:"Meaning of 'ancient'?", options:["modern","old","future"], a:1},
+  {
+    q:"If she had studied harder, she ___ in a better university now.",
+    options:["will be","would be","would have been"],
+    a:1
+  },
+  {
+    q:"If I spoke French, I ___ that job in Paris last year.",
+    options:["would get","will have gotten","would have gotten"],
+    a:2
+  },
+  {
+    q:"If we hadn’t missed the train, we ___ at the concert right now.",
+    options:["would be","are","were"],
+    a:0
+  },
+  {
+    q:"She ___ happier now if she had taken that opportunity.",
+    options:["is","would be","would have been"],
+    a:1
+  },
+  {
+    q:"If I weren’t afraid of flying, I ___ to New York last month.",
+    options:["would go","would have gone","go"],
+    a:1
+  },
+  {
+    q:"If Tom had taken the earlier flight, he ___ at the meeting now.",
+    options:["is","would be","would have been"],
+    a:1
+  },
+  {
+    q:"If I were more confident, I ___ that speech yesterday.",
+    options:["would have given","will give","give"],
+    a:0
+  },
+  {
+    q:"She ___ so stressed now if she had finished the report on time.",
+    options:["is","would be","would have been"],
+    a:1
+  },
+  {
+    q:"If they hadn’t lost their passports, they ___ in Italy right now.",
+    options:["would have been","are","would be"],
+    a:2
+  },
+  {
+    q:"If I had more free time, I ___ the project last week.",
+    options:["would have finished","would finish","finished"],
+    a:0
+  }
 ];
 
 let p1 = {el:document.getElementById("p1"), y:180, hearts:5, bullets:0, dir:1, speed:2};
